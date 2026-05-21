@@ -26,13 +26,13 @@ except Exception as e:
 # Title and description
 st.title("🌱 Smart Crop Recommendation System")
 st.markdown("""
-This application uses a Decision Tree Machine Learning model to recommend the best crop to cultivate 
+This application uses your trained Decision Tree Machine Learning model to recommend the best crop to cultivate 
 based on specific soil characteristics and environmental conditions.
 """)
 
 st.subheader("Enter Soil & Environmental Conditions:")
 
-# Create layout with columns for a clean UI
+# Create a clean 2-column layout for input fields
 col1, col2 = st.columns(2)
 
 with col1:
@@ -42,11 +42,11 @@ with col1:
     ph = st.number_input("pH value of the soil", min_value=0.0, max_value=14.0, value=6.5, step=0.1)
 
 with col2:
-    temp = st.number_input("Temperature in °C", min_value=0.0, max_value=60.0, value=25.0, step=0.5)
-    humidity = st.number_input("Relative Humidity in %", min_value=0.0, max_value=100.0, value=80.0, step=0.5)
-    rainfall = st.number_input("Rainfall in mm", min_value=0.0, max_value=500.0, value=100.0, step=1.0)
+    temp = st.number_input("Temperature (in Celsius)", min_value=0.0, max_value=60.0, value=25.0, step=0.5)
+    humidity = st.number_input("Relative Humidity (in %)", min_value=0.0, max_value=100.0, value=80.0, step=0.5)
+    rainfall = st.number_input("Rainfall (in mm)", min_value=0.0, max_value=500.0, value=100.0, step=1.0)
 
-# High-quality open-source imagery mapping for each of the 22 crops
+# High-quality online image URLs mapped to lowercase, clean keys
 crop_images = {
     "apple": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600",
     "banana": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600",
@@ -74,24 +74,32 @@ crop_images = {
 
 # Recommendation Button
 if st.button("Recommend Best Crop", type="primary"):
-    # Convert inputs to DataFrame with correct feature names to avoid user warnings
+    # Format inputs into a DataFrame with exact feature names
     input_df = pd.DataFrame(
         [[n, p, k, temp, humidity, ph, rainfall]], 
         columns=['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall']
     )
     
-    # Perform prediction
-    prediction = model.predict(input_df)[0]
+    # Generate raw prediction
+    raw_prediction = model.predict(input_df)[0]
+    
+    # CRITICAL FIX: Strip any hidden whitespaces and cast to lowercase to match keys perfectly
+    prediction_cleaned = str(raw_prediction).strip().lower()
     
     st.markdown("---")
-    st.success(f"### 🎉 Recommended Crop: **{prediction.upper()}**")
+    st.success(f"### 🎉 Recommended Crop: **{prediction_cleaned.upper()}**")
     
-    # Display Image (Looks for local file first, then falls back to cloud URL)
-    local_img_path = os.path.join("images", f"{prediction}.jpg")
+    # Create an empty container to force fresh image rendering
+    image_container = st.container()
     
-    if os.path.exists(local_img_path):
-        st.image(local_img_path, caption=f"Optimal crop choice: {prediction.capitalize()}", use_container_width=True)
-    elif prediction in crop_images:
-        st.image(crop_images[prediction], caption=f"Optimal crop choice: {prediction.capitalize()}", use_container_width=True)
-    else:
-        st.info("No visualization available for this crop type.")
+    with image_container:
+        local_img_path = os.path.join("images", f"{prediction_cleaned}.jpg")
+        
+        if os.path.exists(local_img_path):
+            st.image(local_img_path, caption=f"Optimal crop choice: {prediction_cleaned.capitalize()}", use_container_width=True)
+        elif prediction_cleaned in crop_images:
+            # Append a small cache-busting flag to the URL so Streamlit updates the visual frame immediately
+            img_url = f"{crop_images[prediction_cleaned]}&refresh=true"
+            st.image(img_url, caption=f"Optimal crop choice: {prediction_cleaned.capitalize()}", use_container_width=True)
+        else:
+            st.info(f"No visualization image available in directory or mapping for '{prediction_cleaned}'.")
